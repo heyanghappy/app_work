@@ -1,0 +1,27 @@
+name: app_weather
+description: 极简天气 App，Flutter 跨端实现，接入和风天气。
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.4.0
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  flutter_riverpod: ^2.4.9
+  dio: ^5.4.0
+  geolocator: ^11.0.0
+  permission_handler: ^11.3.0
+  shared_preferences: ^2.2.3
+  fl_chart: ^0.66.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

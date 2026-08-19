@@ -1,0 +1,29 @@
+# 环境变量 / API Key 配置（含敏感信息，禁止提交）
+lib/config/env.dart
+
+# Flutter 构建产物
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# 本地 Flutter SDK（工程根目录下解压的 2.1GB SDK，由各端自行安装，不入库）
+/flutter/
+
+# CodeBuddy Agent 运行时工作数据（非工程源码）
+.codebuddy/
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+*.iml
