@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../ads/gromore_manager.dart';
 import '../providers/weather_provider.dart';
 import 'city_search_sheet.dart';
 import 'current_weather_card.dart';
@@ -51,6 +52,9 @@ class WeatherHomePage extends ConsumerWidget {
                                     color: Colors.orange, fontSize: 12),
                                 textAlign: TextAlign.center),
                           ),
+                        const SizedBox(height: 16),
+                        // GroMore Banner 广告
+                        Center(child: GromoreManager.banner()),
                       ],
                     ),
                   ),
@@ -60,6 +64,27 @@ class WeatherHomePage extends ConsumerWidget {
         icon: const Icon(Icons.add_location_alt),
         label: const Text('切换城市'),
       ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: FilledButton.icon(
+            onPressed: () => _showRewardVideo(context),
+            icon: const Icon(Icons.play_circle_outline),
+            label: const Text('看广告领取奖励'),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRewardVideo(BuildContext context) {
+    GromoreManager.showRewardVideo(
+      onReward: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('🎉 奖励已发放，感谢支持！')),
+        );
+      },
+      onClose: () {},
     );
   }
 

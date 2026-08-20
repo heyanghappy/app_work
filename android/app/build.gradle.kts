@@ -19,8 +19,11 @@ android {
         applicationId = "com.example.app_weather"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // GroMore(穿山甲聚合) 要求 minSdk >= 24
+        minSdk = 24
         targetSdk = flutter.targetSdkVersion
+        // GroMore 应用 ID 占位符（替换为你申请的真实 AppID）。
+        manifestPlaceholders["GROMORE_APPID"] = "5870813"
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`

@@ -2,6 +2,8 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // 穿山甲 GroMore 聚合 SDK 的 Maven 仓库（必须添加，否则拉取不到 mediation-sdk）
+        maven { url = uri("https://artifact.bytedance.com/repository/pangle") }
     }
 }
 

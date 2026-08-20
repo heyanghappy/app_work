@@ -17,6 +17,7 @@ dependencies:
   permission_handler: ^11.3.0
   shared_preferences: ^2.2.3
   fl_chart: ^0.66.0
+  gromore_ads: ^1.0.3
 
 dev_dependencies:
   flutter_test:
