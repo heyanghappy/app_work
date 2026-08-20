@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:gromore_ads/gromore_ads.dart';
 
@@ -47,19 +49,34 @@ class GromoreManager {
       return;
     }
 
+    final finished = Completer<void>();
+    var didFinish = false;
+    void complete() {
+      if (didFinish) return;
+      didFinish = true;
+      if (!finished.isCompleted) finished.complete();
+      onFinish();
+    }
+
     final sub = GromoreAds.onSplashEvents(
       AdConfig.splashAdId,
-      onClosed: (_) => onFinish(),
-      onError: (_) => onFinish(),
+      onClosed: (_) => complete(),
+      onError: (_) => complete(),
     );
 
-    await GromoreAds.showSplashAd(
-      const SplashAdRequest(posId: AdConfig.splashAdId),
-    );
+    try {
+      await GromoreAds.showSplashAd(
+        const SplashAdRequest(posId: AdConfig.splashAdId),
+      );
+    } catch (e) {
+      // 展示失败（如广告位无效、未声明 Activity）直接进主页，避免黑屏卡死。
+      complete();
+      return;
+    }
 
-    // 兜底：占位 ID 可能不会回调，4 秒后强制进入主页，避免卡住启动流程。
+    // 兜底：若事件回调未触发（如占位 ID 拉不到广告），4 秒后强制进主页。
     await Future.delayed(const Duration(seconds: 4));
-    onFinish();
+    complete();
     sub.cancel();
   }
 

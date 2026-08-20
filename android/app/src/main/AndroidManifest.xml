@@ -12,6 +12,11 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 穿山甲自定义权限（与后台 AppID 同签名） -->
+    <permission
+        android:name="${applicationId}.openadsdk.permission.TT_PANGOLIN"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.openadsdk.permission.TT_PANGOLIN" />
     <application
         android:label="app_weather"
         android:name="${applicationName}"
@@ -48,6 +53,20 @@
         <meta-data
             android:name="GROMORE_APPID"
             android:value="${GROMORE_APPID}" />
+
+        <!-- 穿山甲 GroMore / Pangle 广告运行必需组件 -->
+        <!-- 注意：开屏/插屏/全屏等广告 Activity 已由 mediation-sdk 自动合并，无需手动声明。
+             以下为 SDK 未注入、需宿主声明的部分：下载类广告 FileProvider 与 TT_PANGOLIN 权限。 -->
+        <provider
+            android:name="com.bytedance.sdk.openadsdk.TTFileProvider"
+            android:authorities="${applicationId}.openadsdk.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true"
+            tools:ignore="MissingClass">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/gromore_file_paths" />
+        </provider>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
