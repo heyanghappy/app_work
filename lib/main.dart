@@ -106,9 +106,26 @@ class _SplashGateState extends State<_SplashGate> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(child: CircularProgressIndicator()),
+    // 极简天气艺术背景图作为开屏界面，避免黑/白屏的空旷感。
+    // 开屏广告容器由原生叠加在其上，广告关闭后进入主页，背景随之消失。
+    return Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'lib/assets/splash_bg.png',
+            fit: BoxFit.cover,
+          ),
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 320),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

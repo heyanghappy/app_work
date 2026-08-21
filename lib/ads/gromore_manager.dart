@@ -22,11 +22,12 @@ class GromoreManager {
     if (_initialized) return;
     // 请求必要的 Android 权限（如电话状态等）。
     await GromoreAds.requestPermissionIfNecessary;
-    await GromoreAds.initAd(
+    final ok = await GromoreAds.initAd(
       AdConfig.appId,
       useMediation: true,
       debugMode: AdConfig.debugMode,
     );
+    debugPrint('[GroMore] initAd -> $ok (appId=${AdConfig.appId})');
     // 预加载广告位，提升首次展示速度（configs 不能为空；开屏无预加载配置）。
     await GromoreAds.preload(
       configs: [
@@ -55,25 +56,38 @@ class GromoreManager {
       if (didFinish) return;
       didFinish = true;
       if (!finished.isCompleted) finished.complete();
+      // 关键修复：无论广告是否正常关闭，进主页前强制移除原生开屏容器，
+      // 否则广告卡在展示态时残留的黑色容器会盖住主页导致黑屏。
+      // 本地 fork 的 gromore_ads 已暴露 destroySplash 方法。
+      GromoreAds.destroySplashAd().catchError((_) => false);
       onFinish();
     }
 
-    // 关键：进主页只能由「广告自然关闭」或「加载失败」驱动。
+    // 进主页只能由「广告自然关闭」或「加载失败」驱动。
     // 开屏广告容器由原生叠加到 Activity.decorView，且仅在 onSplashAdClose 时移除；
-    // 若提前路由切走主页，残留的黑色容器会盖住主页导致黑屏。
+    // 若提前路由切走主页，残留的黑色容器会盖住主页导致黑屏（已由 complete 内 destroy 兜底）。
     final sub = GromoreAds.onSplashEvents(
       AdConfig.splashAdId,
-      onClosed: (_) => complete(),
-      onError: (_) => complete(),
+      onClosed: (_) {
+        debugPrint('[GroMore] 开屏广告 onClosed');
+        complete();
+      },
+      onError: (e) {
+        // e 通常包含错误码与原因（如广告位未配置/应用未审核/网络等）。
+        debugPrint('[GroMore] 开屏广告 onError -> $e');
+        complete();
+      },
     );
 
     try {
       await GromoreAds.showSplashAd(
         const SplashAdRequest(posId: AdConfig.splashAdId),
       );
+      debugPrint('[GroMore] showSplashAd 调用返回（不代表已展示）');
     } catch (e) {
       // showSplashAd 抛异常（广告位无效/SDK 异常）说明未成功展示，无容器残留，
       // 直接进主页即可，不会黑屏。
+      debugPrint('[GroMore] showSplashAd 抛异常 -> $e');
       complete();
       return;
     }

@@ -17,7 +17,10 @@ dependencies:
   permission_handler: ^11.3.0
   shared_preferences: ^2.2.3
   fl_chart: ^0.66.0
-  gromore_ads: ^1.0.3
+  # 本地 fork：官方 1.0.3 未暴露「移除开屏容器」方法，导致广告未正常关闭时
+  # 黑色容器残留盖住主页。此处扩展 destroySplash，仅新增方法，其余与原版一致。
+  gromore_ads:
+    path: plugins/gromore_ads_local
 
 dev_dependencies:
   flutter_test:
@@ -26,3 +29,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - lib/assets/splash_bg.png
