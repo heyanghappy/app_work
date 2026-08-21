@@ -96,7 +96,7 @@ class _SplashGateState extends State<_SplashGate> {
     await GromoreManager.showSplash(
       onFinish: () {
         if (mounted) {
-          Navigator.of(context).pushReplacement(
+          Navigator.of(context, rootNavigator: true).pushReplacement(
             MaterialPageRoute(builder: (_) => const WeatherHomePage()),
           );
         }

@@ -52,14 +52,15 @@ class GromoreManager {
 
     final finished = Completer<void>();
     var didFinish = false;
-    void complete() {
+    Future<void> complete() async {
       if (didFinish) return;
       didFinish = true;
       if (!finished.isCompleted) finished.complete();
-      // 关键修复：无论广告是否正常关闭，进主页前强制移除原生开屏容器，
-      // 否则广告卡在展示态时残留的黑色容器会盖住主页导致黑屏。
+      // 关键修复：必须等原生开屏容器移除完成后再切主页。
+      // destroySplashAd 是 MethodChannel 跨进程调用，removeSplashContainer 在原生主线程排队；
+      // 若不等其完成就 pushReplacement，主页会被残留的黑色容器盖住 → 持续黑屏。
       // 本地 fork 的 gromore_ads 已暴露 destroySplash 方法。
-      GromoreAds.destroySplashAd().catchError((_) => false);
+      await GromoreAds.destroySplashAd().catchError((_) => false);
       onFinish();
     }
 
@@ -93,8 +94,8 @@ class GromoreManager {
     }
 
     // 纯安全网：仅在广告既不关闭也不报错的极端情况下兜底，避免永久卡在开屏。
-    // 该超时较长（>常规 5 秒开屏倒计时），正常流程下由 onClosed 先触发。
-    await Future.delayed(const Duration(seconds: 10));
+    // 该超时略大于常规 5 秒开屏倒计时，正常流程下由 onClosed 先触发（先移除容器再进主页）。
+    await Future.delayed(const Duration(seconds: 6));
     complete();
     sub.cancel();
   }
@@ -102,6 +103,8 @@ class GromoreManager {
   /// 加载并展示激励视频广告。
   ///
   /// [onReward] 在用户完整观看（获得奖励资格）后回调；[onClose] 在广告关闭后回调。
+  /// 内置 8 秒超时保护：若拉取/展示无响应（如后台未配置广告源），超时后回 onClose，
+  /// 避免点击按钮后 UI 永久卡死。
   static Future<void> showRewardVideo({
     required VoidCallback onReward,
     required VoidCallback onClose,
@@ -111,22 +114,40 @@ class GromoreManager {
       return;
     }
 
+    final done = Completer<void>();
     late final AdEventSubscription sub;
+    var closed = false;
+    void finish() {
+      if (closed) return;
+      closed = true;
+      sub.cancel();
+      onClose();
+      if (!done.isCompleted) done.complete();
+    }
+
     sub = GromoreAds.onRewardVideoEvents(
       AdConfig.rewardAdId,
       onRewarded: (_) => onReward(),
-      onClosed: (_) {
-        sub.cancel();
-        onClose();
-      },
+      onClosed: (_) => finish(),
       onError: (_) {
-        sub.cancel();
-        onClose();
+        debugPrint('[GroMore] 激励视频 onError');
+        finish();
       },
     );
 
-    await GromoreAds.loadRewardVideoAd(AdConfig.rewardAdId);
-    await GromoreAds.showRewardVideoAd(AdConfig.rewardAdId);
+    try {
+      await GromoreAds.loadRewardVideoAd(AdConfig.rewardAdId);
+      await GromoreAds.showRewardVideoAd(AdConfig.rewardAdId);
+    } catch (e) {
+      debugPrint('[GroMore] 激励视频 调用异常 -> $e');
+      finish();
+      return;
+    }
+
+    // 超时保护：8 秒内未关闭（多为广告源无填充）则视为结束，回 onClose。
+    await Future.delayed(const Duration(seconds: 8));
+    finish();
+    await done.future;
   }
 
   /// 构建 Banner 广告 Widget（直接嵌入页面）。
