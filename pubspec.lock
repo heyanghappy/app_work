@@ -200,13 +200,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.5"
-  gromore_ads:
-    dependency: "direct main"
-    description:
-      path: "plugins/gromore_ads_local"
-      relative: true
-    source: path
-    version: "1.0.3"
   http_parser:
     dependency: transitive
     description:

@@ -1,49 +1,40 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
-import 'package:gromore_ads/gromore_ads.dart';
+import 'package:flutter/services.dart';
 
 import '../config/ads.dart';
+import 'native_gromore.dart';
 
 /// GroMore(穿山甲聚合) 广告封装。
 ///
-/// 负责 SDK 初始化、开屏/激励视频/Banner 三类广告的加载与展示。
-/// UI 层只调用本类的简洁方法，不直接接触 gromore_ads 原生 API。
+/// 底层直接依赖官方 mediation-sdk:7.7.1.6，通过自维护的 Android 原生桥接
+/// (com.example.app_weather/gromore) 通信。开屏容器由原生侧创建并在关闭时移除，
+/// 规避旧封装插件「黑容器残留盖住主页」的问题。
 class GromoreManager {
-  GromoreManager._();
-
   static bool _initialized = false;
 
-  /// 是否已初始化（需在隐私同意后调用）。
-  static bool get isInitialized => _initialized;
+  static bool get initialized => _initialized;
 
-  /// 初始化 SDK。应在用户同意隐私政策后调用一次。
+  /// 初始化广告 SDK（仅 Android）。
   static Future<void> init() async {
     if (_initialized) return;
     // 请求必要的 Android 权限（如电话状态等）。
-    await GromoreAds.requestPermissionIfNecessary;
-    final ok = await GromoreAds.initAd(
+    await NativeGromore.requestPermissionIfNecessary();
+    final ok = await NativeGromore.initAd(
       AdConfig.appId,
       useMediation: true,
       debugMode: AdConfig.debugMode,
     );
     debugPrint('[GroMore] initAd -> $ok (appId=${AdConfig.appId})');
-    // 预加载广告位，提升首次展示速度（configs 不能为空；开屏无预加载配置）。
-    await GromoreAds.preload(
-      configs: [
-        const PreloadConfig.rewardVideo([AdConfig.rewardAdId]),
-        const PreloadConfig.banner(
-          [AdConfig.bannerAdId],
-          options: {'width': 300, 'height': 100},
-        ),
-      ],
-    );
-    _initialized = true;
+    _initialized = ok;
   }
 
-  /// 展示开屏广告（App 冷启动时调用）。
+  /// 展示开屏广告，结束后回调 [onFinish] 进入主页。
   ///
-  /// [onFinish] 在广告展示结束（关闭/跳过/超时/失败）后回调，用于继续进入主页。
+  /// 关键点：进主页前（任何路径：关闭/失败/超时兜底）都会 await destroySplash()
+  /// 先移除原生开屏容器，再切路由，避免黑色容器盖住主页。
   static Future<void> showSplash({required VoidCallback onFinish}) async {
     if (!_initialized) {
       onFinish();
@@ -56,48 +47,36 @@ class GromoreManager {
       if (didFinish) return;
       didFinish = true;
       if (!finished.isCompleted) finished.complete();
-      // 关键修复：必须等原生开屏容器移除完成后再切主页。
-      // destroySplashAd 是 MethodChannel 跨进程调用，removeSplashContainer 在原生主线程排队；
-      // 若不等其完成就 pushReplacement，主页会被残留的黑色容器盖住 → 持续黑屏。
-      // 本地 fork 的 gromore_ads 已暴露 destroySplash 方法。
-      await GromoreAds.destroySplashAd().catchError((_) => false);
+      // 先强制移除原生开屏容器，再进主页，避免容器残留盖屏。
+      await NativeGromore.destroySplash().catchError((_) => false);
       onFinish();
     }
 
-    // 进主页只能由「广告自然关闭」或「加载失败」驱动。
-    // 开屏广告容器由原生叠加到 Activity.decorView，且仅在 onSplashAdClose 时移除；
-    // 若提前路由切走主页，残留的黑色容器会盖住主页导致黑屏（已由 complete 内 destroy 兜底）。
-    final sub = GromoreAds.onSplashEvents(
-      AdConfig.splashAdId,
-      onClosed: (_) {
+    // 注册原生反向回调：广告关闭或加载失败 -> 进主页。
+    NativeGromore.setSplashCallbacks(
+      onClosed: () {
         debugPrint('[GroMore] 开屏广告 onClosed');
         complete();
       },
-      onError: (e) {
-        // e 通常包含错误码与原因（如广告位未配置/应用未审核/网络等）。
-        debugPrint('[GroMore] 开屏广告 onError -> $e');
+      onError: (msg) {
+        debugPrint('[GroMore] 开屏广告 onError -> $msg');
         complete();
       },
     );
 
     try {
-      await GromoreAds.showSplashAd(
-        const SplashAdRequest(posId: AdConfig.splashAdId),
-      );
+      await NativeGromore.showSplashAd(AdConfig.splashAdId);
       debugPrint('[GroMore] showSplashAd 调用返回（不代表已展示）');
     } catch (e) {
-      // showSplashAd 抛异常（广告位无效/SDK 异常）说明未成功展示，无容器残留，
-      // 直接进主页即可，不会黑屏。
       debugPrint('[GroMore] showSplashAd 抛异常 -> $e');
       complete();
       return;
     }
 
     // 纯安全网：仅在广告既不关闭也不报错的极端情况下兜底，避免永久卡在开屏。
-    // 该超时略大于常规 5 秒开屏倒计时，正常流程下由 onClosed 先触发（先移除容器再进主页）。
+    // 略大于常规 5 秒开屏倒计时，正常流程下由 onClosed 先触发。
     await Future.delayed(const Duration(seconds: 6));
     complete();
-    sub.cancel();
   }
 
   /// 加载并展示激励视频广告。
@@ -115,29 +94,29 @@ class GromoreManager {
     }
 
     final done = Completer<void>();
-    late final AdEventSubscription sub;
     var closed = false;
     void finish() {
       if (closed) return;
       closed = true;
-      sub.cancel();
+      NativeGromore.clearRewardCallbacks();
       onClose();
       if (!done.isCompleted) done.complete();
     }
 
-    sub = GromoreAds.onRewardVideoEvents(
-      AdConfig.rewardAdId,
-      onRewarded: (_) => onReward(),
-      onClosed: (_) => finish(),
-      onError: (_) {
-        debugPrint('[GroMore] 激励视频 onError');
+    NativeGromore.setRewardCallbacks(
+      onRewarded: () {
+        debugPrint('[GroMore] 激励视频 获得奖励');
+        onReward();
+      },
+      onClosed: () {
+        debugPrint('[GroMore] 激励视频 onClosed');
         finish();
       },
     );
 
     try {
-      await GromoreAds.loadRewardVideoAd(AdConfig.rewardAdId);
-      await GromoreAds.showRewardVideoAd(AdConfig.rewardAdId);
+      await NativeGromore.loadRewardVideoAd(AdConfig.rewardAdId);
+      await NativeGromore.showRewardVideoAd(AdConfig.rewardAdId);
     } catch (e) {
       debugPrint('[GroMore] 激励视频 调用异常 -> $e');
       finish();
@@ -150,15 +129,23 @@ class GromoreManager {
     await done.future;
   }
 
-  /// 构建 Banner 广告 Widget（直接嵌入页面）。
-  static Widget banner({
-    double width = 300,
-    double height = 100,
-  }) {
-    return AdBannerWidget(
-      posId: AdConfig.bannerAdId,
-      width: width,
+  /// 返回一个 Banner/信息流广告控件（仅 Android；其他平台返回占位空控件）。
+  static Widget banner({double height = 50}) {
+    if (!Platform.isAndroid) {
+      return const SizedBox.shrink();
+    }
+    return SizedBox(
+      width: double.infinity,
       height: height,
+      child: const AndroidView(
+        viewType: 'gromore_banner',
+        creationParams: {
+          'posId': AdConfig.bannerAdId,
+          'width': 320.0,
+          'height': 50.0,
+        },
+        creationParamsCodec: StandardMessageCodec(),
+      ),
     );
   }
 }
