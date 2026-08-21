@@ -1,7 +1,7 @@
 name: app_weather
 description: 极简天气 App，Flutter 跨端实现，接入和风天气。
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ^3.4.0

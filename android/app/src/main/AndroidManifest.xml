@@ -55,14 +55,16 @@
             android:value="${GROMORE_APPID}" />
 
         <!-- 穿山甲 GroMore / Pangle 广告运行必需组件 -->
-        <!-- 注意：开屏/插屏/全屏等广告 Activity 已由 mediation-sdk 自动合并，无需手动声明。
-             以下为 SDK 未注入、需宿主声明的部分：下载类广告 FileProvider 与 TT_PANGOLIN 权限。 -->
+        <!-- 注意：开屏/插屏/全屏 Activity、TT_PANGOLIN 权限、pangle FileProvider
+             均已由 mediation-sdk(aar) 自动合并，宿主无需重复声明，重复声明会触发
+             ClassNotFoundException 导致启动闪退。此处仅补齐 pangle FileProvider 缺失的
+             paths 配置（与 SDK 自带 authority 保持一致，用 replace 合并 meta-data）。 -->
         <provider
-            android:name="com.bytedance.sdk.openadsdk.TTFileProvider"
-            android:authorities="${applicationId}.openadsdk.fileprovider"
+            android:name="com.bytedance.pangle.FileProvider"
+            android:authorities="${applicationId}.pangle.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true"
-            tools:ignore="MissingClass">
+            tools:replace="android:exported">
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/gromore_file_paths" />
