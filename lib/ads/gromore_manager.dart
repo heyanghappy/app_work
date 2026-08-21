@@ -58,6 +58,9 @@ class GromoreManager {
       onFinish();
     }
 
+    // 关键：进主页只能由「广告自然关闭」或「加载失败」驱动。
+    // 开屏广告容器由原生叠加到 Activity.decorView，且仅在 onSplashAdClose 时移除；
+    // 若提前路由切走主页，残留的黑色容器会盖住主页导致黑屏。
     final sub = GromoreAds.onSplashEvents(
       AdConfig.splashAdId,
       onClosed: (_) => complete(),
@@ -69,13 +72,15 @@ class GromoreManager {
         const SplashAdRequest(posId: AdConfig.splashAdId),
       );
     } catch (e) {
-      // 展示失败（如广告位无效、未声明 Activity）直接进主页，避免黑屏卡死。
+      // showSplashAd 抛异常（广告位无效/SDK 异常）说明未成功展示，无容器残留，
+      // 直接进主页即可，不会黑屏。
       complete();
       return;
     }
 
-    // 兜底：若事件回调未触发（如占位 ID 拉不到广告），4 秒后强制进主页。
-    await Future.delayed(const Duration(seconds: 4));
+    // 纯安全网：仅在广告既不关闭也不报错的极端情况下兜底，避免永久卡在开屏。
+    // 该超时较长（>常规 5 秒开屏倒计时），正常流程下由 onClosed 先触发。
+    await Future.delayed(const Duration(seconds: 10));
     complete();
     sub.cancel();
   }
