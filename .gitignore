@@ -27,3 +27,6 @@ android/app/release/
 .vscode/
 .DS_Store
 *.iml
+
+# Kotlin 编译器守护进程运行数据（构建产物，非工程源码）
+android/.kotlin/

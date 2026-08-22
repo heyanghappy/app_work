@@ -66,7 +66,10 @@ class _AppEntryState extends State<AppEntry> {
   @override
   Widget build(BuildContext context) {
     if (_consented == null) {
-      return const _SplashGate(); // 载入中
+      // 加载态：仅展示纯静态开屏背景，绝不能初始化广告 SDK。
+      // 穿山甲 GroMore 强制要求：在初始化广告 SDK 前必须获得用户同意，
+      // 因此在 isConsented() 返回前，必须避免任何 GromoreManager 调用。
+      return const _SplashPlaceholder();
     }
     if (_consented == true) {
       return const _SplashGate(); // 已同意：初始化广告 + 开屏
@@ -108,6 +111,36 @@ class _SplashGateState extends State<_SplashGate> {
   Widget build(BuildContext context) {
     // 极简天气艺术背景图作为开屏界面，避免黑/白屏的空旷感。
     // 开屏广告容器由原生叠加在其上，广告关闭后进入主页，背景随之消失。
+    return Scaffold(
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'lib/assets/splash_bg.png',
+            fit: BoxFit.cover,
+          ),
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(top: 320),
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 隐私同意前的纯静态占位（仅展示背景图，不初始化任何广告 SDK）。
+/// 与 [_SplashGate] 区分：本控件在 initState 中不调用 GromoreManager，
+/// 用于 AppEntry._consented == null 的加载窗口，确保合规。
+class _SplashPlaceholder extends StatelessWidget {
+  const _SplashPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,

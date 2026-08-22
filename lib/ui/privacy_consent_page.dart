@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../ads/gromore_manager.dart';
@@ -40,9 +41,9 @@ class PrivacyConsentPage extends StatelessWidget {
 
   Future<void> _exit() async {
     // 不同意则退出应用（广告 SDK 不可用，App 不提供核心外服务也可接受）。
-    // 使用 SystemNavigator 退出 Android 应用。
-    // ignore: avoid_print
-    print('用户拒绝隐私政策，退出应用');
+    // SystemNavigator.pop 在 Android 上会 finish 当前 Activity 从而退出应用；
+    // iOS 上 Apple 不允许应用主动退出，此调用会被忽略，仅停留在隐私页。
+    await SystemNavigator.pop();
   }
 
   @override

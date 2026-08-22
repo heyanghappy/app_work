@@ -12,10 +12,13 @@ import '../repositories/weather_repository.dart';
 final repositoryProvider = Provider<WeatherRepository>((ref) {
   // SharedPreferences 由 main 中 override 注入。
   final prefs = ref.watch(sharedPrefsProvider);
+  // 共用同一个远程数据源（含同一 Dio 实例 / 拦截器），
+  // 避免重复构造两份 WeatherRemoteDataSource + 两份 Dio。
+  final remote = WeatherRemoteDataSource();
   return WeatherRepository(
-    remote: WeatherRemoteDataSource(),
+    remote: remote,
     local: WeatherLocalDataSource(prefs),
-    location: LocationService(WeatherRemoteDataSource()),
+    location: LocationService(remote),
   );
 });
 
@@ -82,10 +85,13 @@ class WeatherNotifier extends StateNotifier<WeatherState> {
   Future<void> load(City city) async {
     state = state.copyWith(city: city, loading: true, error: null);
     try {
+      // 一次性读取缓存视图（仅解码一次 JSON），并发拉取时复用，
+      // 避免 getCurrentWeather/Hourly/Daily 各自再解码一遍。
+      final cached = _repo.getCachedBundle(city.id);
       final results = await Future.wait([
-        _repo.getCurrentWeather(city.id),
-        _repo.getHourlyForecast(city.id),
-        _repo.getDailyForecast(city.id),
+        _repo.getCurrentWeather(city.id, cached: cached?.now),
+        _repo.getHourlyForecast(city.id, cached: cached?.hourly),
+        _repo.getDailyForecast(city.id, cached: cached?.daily),
       ]);
       state = state.copyWith(
         now: results[0] as WeatherNow,
@@ -94,12 +100,9 @@ class WeatherNotifier extends StateNotifier<WeatherState> {
         loading: false,
       );
     } catch (e) {
-      // 若已有缓存数据，保留展示，仅提示错误。
-      if (state.now == null) {
-        state = state.copyWith(loading: false, error: _msg(e));
-      } else {
-        state = state.copyWith(loading: false, error: _msg(e));
-      }
+      // 出错时 copyWith 默认保留已有 now/hourly/daily（旧数据继续展示），
+      // 仅更新 loading 与 error；无需分支判断。
+      state = state.copyWith(loading: false, error: _msg(e));
     }
   }
 

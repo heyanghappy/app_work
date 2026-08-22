@@ -47,10 +47,34 @@ class WeatherLocalDataSource {
   }
 
   /// 读取天气缓存；无则返回 null。
+  ///
+  /// 注意：本方法每次调用都会重新 `jsonDecode`。当调用方需要同时取
+  /// now/hourly/daily 时，应改用 [getCachedWeatherBundle] 一次性解析，
+  /// 避免对同一份 JSON 重复解码 3 次。
   Map<String, dynamic>? getCachedWeather(String cityId) {
     final raw = _prefs.getString(_kWeatherPrefix + cityId);
     if (raw == null) return null;
     return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  /// 一次性返回 now/hourly/daily 的缓存视图，对同一份 JSON 仅解码一次。
+  /// 任意子字段缺失时对应返回 null。
+  CachedWeatherBundle? getCachedWeatherBundle(String cityId) {
+    final m = getCachedWeather(cityId);
+    if (m == null) return null;
+    return CachedWeatherBundle(
+      now: m['now'] == null
+          ? null
+          : WeatherNow.fromJson(m['now'] as Map<String, dynamic>),
+      hourly: (m['hourly'] as List?)
+          ?.cast<Map<String, dynamic>>()
+          .map(HourlyForecast.fromJson)
+          .toList(),
+      daily: (m['daily'] as List?)
+          ?.cast<Map<String, dynamic>>()
+          .map(DailyForecast.fromJson)
+          .toList(),
+    );
   }
 
   WeatherNow? getCachedNow(String cityId) {
@@ -76,4 +100,14 @@ class WeatherLocalDataSource {
         .map(DailyForecast.fromJson)
         .toList();
   }
+}
+
+/// 一次性解析后的缓存视图（仅解码一次 JSON）。
+/// 字段缺失时为 null，由调用方自行回退。
+class CachedWeatherBundle {
+  final WeatherNow? now;
+  final List<HourlyForecast>? hourly;
+  final List<DailyForecast>? daily;
+
+  const CachedWeatherBundle({this.now, this.hourly, this.daily});
 }

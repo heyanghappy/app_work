@@ -53,7 +53,7 @@ class WeatherHomePage extends ConsumerWidget {
                                 textAlign: TextAlign.center),
                           ),
                         const SizedBox(height: 16),
-                        // GroMore Banner 广告
+                        // GroMore Banner 广告（滚动到列表底部显示）
                         Center(child: GromoreManager.banner()),
                       ],
                     ),
@@ -80,6 +80,10 @@ class WeatherHomePage extends ConsumerWidget {
   void _showRewardVideo(BuildContext context) {
     GromoreManager.showRewardVideo(
       onReward: () {
+        // 激励视频是异步流程，回调触发时当前 widget 可能已卸载，
+        // 必须检查 context.mounted 后再取 ScaffoldMessenger，否则会抛
+        // "dependOnInheritedWidgetOfExactType" 断言。
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('🎉 奖励已发放，感谢支持！')),
         );

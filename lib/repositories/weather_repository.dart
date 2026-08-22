@@ -31,41 +31,57 @@ class WeatherRepository {
   }
 
   /// 当前天气：先缓存兜底，再尝试网络刷新。
-  Future<WeatherNow> getCurrentWeather(String cityId) async {
-    final cached = local.getCachedNow(cityId);
+  ///
+  /// [cached] 可由调用方预先通过 [WeatherLocalDataSource.getCachedWeatherBundle]
+  /// 一次性解析后传入，避免在并发调用三个 getXxx 时各自重复解码同一份 JSON。
+  Future<WeatherNow> getCurrentWeather(
+    String cityId, {
+    WeatherNow? cached,
+  }) async {
+    final cachedNow = cached ?? local.getCachedNow(cityId);
     try {
       final now = await remote.getNow(cityId);
       _persist(cityId, now: now);
       return now;
     } catch (_) {
-      if (cached != null) return cached;
+      if (cachedNow != null) return cachedNow;
       rethrow;
     }
   }
 
-  Future<List<HourlyForecast>> getHourlyForecast(String cityId) async {
-    final cached = local.getCachedHourly(cityId);
+  Future<List<HourlyForecast>> getHourlyForecast(
+    String cityId, {
+    List<HourlyForecast>? cached,
+  }) async {
+    final cachedHourly = cached ?? local.getCachedHourly(cityId);
     try {
       final list = await remote.getHourly(cityId);
       _persist(cityId, hourly: list);
       return list;
     } catch (_) {
-      if (cached != null) return cached;
+      if (cachedHourly != null) return cachedHourly;
       rethrow;
     }
   }
 
-  Future<List<DailyForecast>> getDailyForecast(String cityId) async {
-    final cached = local.getCachedDaily(cityId);
+  Future<List<DailyForecast>> getDailyForecast(
+    String cityId, {
+    List<DailyForecast>? cached,
+  }) async {
+    final cachedDaily = cached ?? local.getCachedDaily(cityId);
     try {
       final list = await remote.getDaily(cityId, days: 7);
       _persist(cityId, daily: list);
       return list;
     } catch (_) {
-      if (cached != null) return cached;
+      if (cachedDaily != null) return cachedDaily;
       rethrow;
     }
   }
+
+  /// 一次性读取该城市的完整缓存视图（仅解码一次 JSON），供并发拉取时复用。
+  CachedWeatherBundle? getCachedBundle(String cityId) =>
+      local.getCachedWeatherBundle(cityId);
 
   Future<List<City>> searchCity(String keyword) => remote.searchCity(keyword);
 

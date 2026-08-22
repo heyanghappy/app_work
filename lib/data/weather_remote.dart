@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
 import '../config/env.dart';
 import '../models/city.dart';
@@ -8,8 +9,6 @@ import '../models/weather.dart';
 ///
 /// 仅负责 HTTP 请求与响应解析，不含任何缓存 / 业务逻辑。
 class WeatherRemoteDataSource {
-  late final Dio _dio;
-
   WeatherRemoteDataSource() {
     _dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 5),
@@ -19,13 +18,27 @@ class WeatherRemoteDataSource {
       queryParameters: WeatherApi.useBearerHeader ? null : {'key': Env.apiKey},
       headers: WeatherApi.useBearerHeader ? {'Authorization': 'Bearer ${Env.apiKey}'} : null,
     ));
-    _dio.interceptors.add(LogInterceptor(
-      request: false,
-      requestBody: false,
-      responseBody: false,
-      error: true,
-    ));
+    // 仅在 debug 模式开启日志，并通过自定义 logPrint 对 URI 中的 key 做脱敏，
+    // 避免 release 包或日志外泄时把和风 API Key 暴露出去。
+    if (kDebugMode) {
+      _dio.interceptors.add(LogInterceptor(
+        request: false,
+        requestBody: false,
+        responseBody: false,
+        error: true,
+        logPrint: (Object? msg) {
+          // 把 `key=xxxx` 替换为 `key=***`，避免明文打印 API Key。
+          final redacted = msg.toString().replaceAllMapped(
+                RegExp(r'(key=)[^&\s]+'),
+                (m) => '${m.group(1)}***',
+              );
+          debugPrint(redacted);
+        },
+      ));
+    }
   }
+
+  late final Dio _dio;
 
   /// 在 [base]（已含版本前缀，如 https://x.qweatherapi.com/v7）后拼 [path]，
   /// 用 Uri.resolveUri 避免多/少斜杠问题。

@@ -49,6 +49,25 @@ class SplashAdManager(private val channel: MethodChannel) {
             )
             .build()
 
+        // 守卫：MethodChannel.Result 只能回复一次。
+        // 穿山甲 SDK 在加载失败时会在数毫秒内连续回调 onSplashLoadFail
+        // 与 onSplashRenderFail，若两次都调 result.error 会抛
+        // IllegalStateException("Reply already submitted") 导致应用崩溃。
+        var resultReplied = false
+        fun replyError(code: String, msg: String, detail: Any?) {
+            if (resultReplied) return
+            resultReplied = true
+            result.error(code, msg, detail)
+            // 同步通过反向通道通知 Dart 触发 onError -> complete()，
+            // 让 GromoreManager.showSplash 走错误兜底流程进入主页。
+            channel.invokeMethod("splashError", msg)
+        }
+        fun replySuccess(value: Any?) {
+            if (resultReplied) return
+            resultReplied = true
+            result.success(value)
+        }
+
         adNative.loadSplashAd(adSlot, object : TTAdNative.CSJSplashAdListener {
             override fun onSplashLoadSuccess(ad: CSJSplashAd?) {
                 Log.i(TAG, "onSplashLoadSuccess")
@@ -56,16 +75,18 @@ class SplashAdManager(private val channel: MethodChannel) {
 
             override fun onSplashLoadFail(error: CSJAdError?) {
                 Log.e(TAG, "onSplashLoadFail code=${error?.getCode()} msg=${error?.getMsg()}")
-                result.error("SPLASH_LOAD_FAIL", error?.getMsg() ?: "splash load fail", error?.getCode())
-                // 反向通知 Dart：加载失败
-                channel.invokeMethod("splashError", error?.getMsg() ?: "splash load fail")
+                replyError(
+                    "SPLASH_LOAD_FAIL",
+                    error?.getMsg() ?: "splash load fail",
+                    error?.getCode()
+                )
             }
 
             override fun onSplashRenderSuccess(ad: CSJSplashAd?) {
                 Log.i(TAG, "onSplashRenderSuccess")
                 splashAd = ad
                 showSplashAdView(context)
-                result.success(true)
+                replySuccess(true)
             }
 
             override fun onSplashRenderFail(
@@ -73,8 +94,11 @@ class SplashAdManager(private val channel: MethodChannel) {
                 error: CSJAdError?
             ) {
                 Log.e(TAG, "onSplashRenderFail code=${error?.getCode()} msg=${error?.getMsg()}")
-                result.error("SPLASH_RENDER_FAIL", error?.getMsg() ?: "splash render fail", error?.getCode())
-                channel.invokeMethod("splashError", error?.getMsg() ?: "splash render fail")
+                replyError(
+                    "SPLASH_RENDER_FAIL",
+                    error?.getMsg() ?: "splash render fail",
+                    error?.getCode()
+                )
             }
         }, 3000)
     }

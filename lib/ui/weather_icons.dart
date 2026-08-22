@@ -7,11 +7,12 @@ String weatherEmoji(String code) {
   final n = int.tryParse(code) ?? 0;
   if (n == 100) return '☀️'; // 晴
   if (n >= 101 && n <= 103) return '⛅'; // 多云
-  if (n >= 104 && n <= 213) return '☁️'; // 阴 / 有风沙
+  // 雷暴（200-213）需先于阴/风沙判断，否则会被 104-213 分支吞掉返回 ☁️。
+  if (n >= 200 && n <= 299) return '⛈️'; // 雷暴
+  if (n >= 104 && n <= 199) return '☁️'; // 阴 / 有风沙
   if (n >= 300 && n <= 399) return '🌧️'; // 雨
   if (n >= 400 && n <= 499) return '❄️'; // 雪
   if (n >= 500 && n <= 599) return '🌫️'; // 雾 / 霾
-  if (n >= 200 && n <= 299) return '⛈️'; // 雷暴
   return '🌡️';
 }
 
