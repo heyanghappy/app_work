@@ -86,9 +86,11 @@ class _CitySearchSheetState extends ConsumerState<CitySearchSheet> {
                       children: cities
                           .map((c) => ActionChip(
                                 label: Text(c.name),
-                                onPressed: () {
+                                onPressed: () async {
                                   Navigator.pop(context);
-                                  ref.read(weatherProvider.notifier).selectCity(c);
+                                  await ref.read(repositoryProvider).addCity(c);
+                                  ref.invalidate(savedCitiesProvider);
+                                  ref.read(activeCityIdProvider.notifier).setCity(c.id);
                                 },
                               ))
                           .toList(),
@@ -114,9 +116,11 @@ class _CitySearchSheetState extends ConsumerState<CitySearchSheet> {
                                   ? Text('${c.lat!.toStringAsFixed(2)}, ${c.lon!.toStringAsFixed(2)}')
                                   : null,
                               trailing: const Icon(Icons.chevron_right),
-                              onTap: () {
+                              onTap: () async {
                                 Navigator.pop(context);
-                                ref.read(weatherProvider.notifier).selectCity(c);
+                                await ref.read(repositoryProvider).addCity(c);
+                                ref.invalidate(savedCitiesProvider);
+                                ref.read(activeCityIdProvider.notifier).setCity(c.id);
                               },
                             );
                           },

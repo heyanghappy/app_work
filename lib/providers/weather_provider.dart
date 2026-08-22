@@ -75,14 +75,26 @@ class WeatherState {
 class WeatherNotifier extends StateNotifier<WeatherState> {
   final WeatherRepository _repo;
 
-  WeatherNotifier(this._repo) : super(const WeatherState(loading: true)) {
-    _init();
+  WeatherNotifier(this._repo, String cityId)
+      : super(const WeatherState(loading: true)) {
+    _init(cityId);
   }
 
-  /// 启动：定位当前城市并加载天气。
-  Future<void> _init() async {
+  /// 启动：按 cityId 从已保存城市找到对应 City 并加载其天气。
+  ///
+  /// cityId 由 family 参数指定；多页横滑时每个城市一个 WeatherNotifier，
+  /// 各城市状态独立加载并缓存，实现「多页常驻」。
+  Future<void> _init(String cityId) async {
     try {
-      final city = await _repo.locateOrDefault();
+      final cities = await _repo.getSavedCities();
+      final city = cities.firstWhere(
+        (c) => c.id == cityId,
+        orElse: () => City(
+          id: cityId,
+          name: cityId,
+          isLocated: cityId.startsWith('locate'),
+        ),
+      );
       state = state.copyWith(city: city);
       await load(city);
     } catch (e) {
@@ -137,9 +149,28 @@ class WeatherNotifier extends StateNotifier<WeatherState> {
   String _msg(Object e) => e is WeatherApiException ? e.message : e.toString();
 }
 
+/// 当前激活（正在展示）的城市 id。
+///
+/// 由主页 PageView 切换时更新，供圆点/激励入口/自动刷新等判断「当前城市」。
+class ActiveCityNotifier extends StateNotifier<String?> {
+  ActiveCityNotifier() : super(null);
+
+  void setCity(String id) => state = id;
+}
+
+final activeCityIdProvider =
+    StateNotifierProvider<ActiveCityNotifier, String?>((ref) {
+  return ActiveCityNotifier();
+});
+
+/// 城市天气状态（按 cityId 维度管理，family）。
+///
+/// 每个城市一个 [WeatherNotifier]，状态独立加载并缓存；
+/// 主页 PageView 横滑懒加载，切换城市不丢已加载数据。
 final weatherProvider =
-    StateNotifierProvider<WeatherNotifier, WeatherState>((ref) {
-  return WeatherNotifier(ref.watch(repositoryProvider));
+    StateNotifierProvider.family<WeatherNotifier, WeatherState, String>(
+        (ref, cityId) {
+  return WeatherNotifier(ref.watch(repositoryProvider), cityId);
 });
 
 /// 已选城市列表 Provider（用于切换弹层）。

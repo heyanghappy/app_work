@@ -43,10 +43,12 @@ class _AutoRefreshState extends ConsumerState<AutoRefresh>
   }
 
   Future<void> _refresh() async {
-    final current = ref.read(weatherProvider);
+    final activeId = ref.read(activeCityIdProvider);
+    if (activeId == null) return;
+    final state = ref.read(weatherProvider(activeId));
     // 已有可展示数据且不在加载中才静默刷新；否则保持现状（含初次加载/错误占位）。
-    if (current.city != null && current.now != null && !current.loading) {
-      await ref.read(weatherProvider.notifier).load(current.city!);
+    if (state.city != null && state.now != null && !state.loading) {
+      await ref.read(weatherProvider(activeId).notifier).load(state.city!);
     }
   }
 

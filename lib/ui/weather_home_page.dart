@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ads/gromore_manager.dart';
+import '../models/city.dart';
 import '../providers/weather_provider.dart';
 import 'auto_refresh.dart';
 import 'city_manager_page.dart';
@@ -12,90 +13,47 @@ import 'life_indices_card.dart';
 import 'theme_colors.dart';
 import 'weather_detail_page.dart';
 
-/// 主页：组合当前天气 + 逐小时 + 多日 + 城市切换入口。
-class WeatherHomePage extends ConsumerWidget {
+/// 主页：横向滑动切换已存城市（PageView 多页常驻）+ 底部圆点指示。
+///
+/// 每个城市一个 family WeatherNotifier，独立加载并缓存天气状态；
+/// PageView 懒加载，越界城市自动对齐到首个，删除当前城市自动回退。
+class WeatherHomePage extends ConsumerStatefulWidget {
   const WeatherHomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(weatherProvider);
+  ConsumerState<WeatherHomePage> createState() => _WeatherHomePageState();
+}
 
-    return AutoRefresh(
-      child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: SafeArea(
-        child: state.loading && state.now == null
-            ? const Center(child: CircularProgressIndicator())
-            : state.error != null && state.now == null
-                ? _ErrorView(message: state.error!)
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      if (state.city != null) {
-                        await ref.read(weatherProvider.notifier).load(state.city!);
-                      }
-                    },
-                    child: ListView(
-                      // 底部预留少量空间，让 Banner 与列表尾部有呼吸感。
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                      children: [
-                        _TopBar(
-                          cityName: state.city?.name ?? '',
-                          isLocated: state.city?.isLocated ?? false,
-                          updatedAt: state.updatedAt,
-                          onPick: () => _openCitySheet(context, ref),
-                        ),
-                        const SizedBox(height: 12),
-                        if (state.now != null)
-                          GestureDetector(
-                            onTap: () => _openDetail(context, state),
-                            child: CurrentWeatherCard(
-                                now: state.now!, cityName: state.city?.name ?? ''),
-                          ),
-                        const SizedBox(height: 12),
-                        GestureDetector(
-                          onTap: () => _openDetail(context, state),
-                          child: HourlyChart(hourly: state.hourly),
-                        ),
-                        GestureDetector(
-                          onTap: () => _openDetail(context, state),
-                          child: DailyForecastList(daily: state.daily),
-                        ),
-                        LifeIndicesCard(indices: state.indices),
-                        const SizedBox(height: 16),
-                        // GroMore Banner 广告（置于「未来几天」列表最下方，滚动到底部展示）
-                        Center(child: GromoreManager.banner()),
-                        if (state.error != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Text(state.error!,
-                                style: const TextStyle(
-                                    color: Colors.orange, fontSize: 12),
-                                textAlign: TextAlign.center),
-                          ),
-                      ],
-                    ),
-                  ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: FilledButton.icon(
-            onPressed: () => _showRewardVideo(context),
-            icon: const Icon(Icons.play_circle_outline),
-            label: const Text('看广告领取奖励'),
-          ),
-        ),
-      ),
-      ),
-    );
+class _WeatherHomePageState extends ConsumerState<WeatherHomePage> {
+  final PageController _controller = PageController();
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureDefaults();
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// 首次启动：已保存城市为空时，定位当前城市并加入列表，确保首页有内容可滑。
+  Future<void> _ensureDefaults() async {
+    final repo = ref.read(repositoryProvider);
+    final saved = await repo.getSavedCities();
+    if (saved.isEmpty) {
+      final located = await repo.locateOrDefault();
+      await repo.addCity(located);
+      ref.invalidate(savedCitiesProvider);
+    }
+  }
+
+  /// 激励视频回调（异步，需检查 mounted）。
   void _showRewardVideo(BuildContext context) {
     GromoreManager.showRewardVideo(
       onReward: () {
-        // 激励视频是异步流程，回调触发时当前 widget 可能已卸载，
-        // 必须检查 context.mounted 后再取 ScaffoldMessenger，否则会抛
-        // "dependOnInheritedWidgetOfExactType" 断言。
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('🎉 奖励已发放，感谢支持！')),
@@ -105,13 +63,179 @@ class WeatherHomePage extends ConsumerWidget {
     );
   }
 
-  void _openCitySheet(BuildContext context, WidgetRef ref) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CityManagerPage()),
+  @override
+  Widget build(BuildContext context) {
+    final saved = ref.watch(savedCitiesProvider);
+    final activeId = ref.watch(activeCityIdProvider);
+    final cities = saved.value;
+
+    // 当激活城市失效（如被删除）或首次尚无激活城市时，对齐到第一个。
+    if (cities != null &&
+        cities.isNotEmpty &&
+        (activeId == null || !cities.any((c) => c.id == activeId))) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(activeCityIdProvider.notifier).setCity(cities.first.id);
+      });
+    }
+
+    // 外部切换激活城市（如从城市管理页返回）时，滚动 PageView 到对应页。
+    ref.listen(activeCityIdProvider, (prev, next) {
+      if (next == null || cities == null) return;
+      final idx = cities.indexWhere((c) => c.id == next);
+      if (idx >= 0 &&
+          _controller.hasClients &&
+          _controller.page?.round() != idx) {
+        _controller.animateToPage(
+          idx,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+
+    return AutoRefresh(
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
+          child: cities == null
+              ? const Center(child: CircularProgressIndicator())
+              : cities.isEmpty
+                  ? const Center(child: Text('暂无城市'))
+                  : Stack(
+                      children: [
+                        PageView.builder(
+                          controller: _controller,
+                          itemCount: cities.length,
+                          onPageChanged: (i) {
+                            ref
+                                .read(activeCityIdProvider.notifier)
+                                .setCity(cities[i].id);
+                          },
+                          itemBuilder: (_, i) =>
+                              _CityPage(city: cities[i]),
+                        ),
+                        // 底部圆点指示器（多城市时显示）。
+                        if (cities.length > 1)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 8,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                for (var i = 0; i < cities.length; i++)
+                                  AnimatedContainer(
+                                    duration:
+                                        const Duration(milliseconds: 200),
+                                    margin:
+                                        const EdgeInsets.symmetric(horizontal: 4),
+                                    width: i == cities.indexWhere(
+                                                (c) => c.id == activeId)
+                                        ? 18
+                                        : 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: activeId == cities[i].id
+                                          ? Theme.of(context)
+                                              .colorScheme
+                                              .primary
+                                          : Colors.grey.withValues(alpha: 0.4),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+        ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: FilledButton.icon(
+              onPressed: () => _showRewardVideo(context),
+              icon: const Icon(Icons.play_circle_outline),
+              label: const Text('看广告领取奖励'),
+            ),
+          ),
+        ),
+      ),
     );
   }
+}
 
-  /// 打开天气详情页（仅当已有实时数据时）。
+/// 单个城市的天气页面：watch 该城市的 family provider，独立加载/缓存。
+class _CityPage extends ConsumerWidget {
+  final City city;
+  const _CityPage({required this.city});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(weatherProvider(city.id));
+    final isActive = ref.watch(activeCityIdProvider) == city.id;
+
+    return state.loading && state.now == null
+        ? const Center(child: CircularProgressIndicator())
+        : state.error != null && state.now == null
+            ? _ErrorView(message: state.error!)
+            : RefreshIndicator(
+                onRefresh: () async {
+                  if (state.city != null) {
+                    await ref
+                        .read(weatherProvider(city.id).notifier)
+                        .load(state.city!);
+                  }
+                },
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  children: [
+                    _TopBar(
+                      cityName: state.city?.name ?? city.name,
+                      isLocated: state.city?.isLocated ?? false,
+                      updatedAt: state.updatedAt,
+                      onPick: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CityManagerPage(),
+                          ),
+                        ).then((_) {
+                          ref.invalidate(savedCitiesProvider);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    if (state.now != null)
+                      GestureDetector(
+                        onTap: () => _openDetail(context, state),
+                        child: CurrentWeatherCard(
+                            now: state.now!, cityName: state.city?.name ?? ''),
+                      ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: () => _openDetail(context, state),
+                      child: HourlyChart(hourly: state.hourly),
+                    ),
+                    GestureDetector(
+                      onTap: () => _openDetail(context, state),
+                      child: DailyForecastList(daily: state.daily),
+                    ),
+                    LifeIndicesCard(indices: state.indices),
+                    const SizedBox(height: 16),
+                    // Banner 仅在当前激活页底部展示，避免横向滑动时创建多个广告实例。
+                    if (isActive) Center(child: GromoreManager.banner()),
+                    if (state.error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(state.error!,
+                            style: const TextStyle(
+                                color: Colors.orange, fontSize: 12),
+                            textAlign: TextAlign.center),
+                      ),
+                  ],
+                ),
+              );
+  }
+
   void _openDetail(BuildContext context, WeatherState state) {
     final now = state.now;
     if (now == null) return;

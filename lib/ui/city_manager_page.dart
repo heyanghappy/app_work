@@ -14,7 +14,7 @@ class CityManagerPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final saved = ref.watch(savedCitiesProvider);
-    final current = ref.watch(weatherProvider).city;
+    final currentId = ref.watch(activeCityIdProvider) ?? 'locate_init';
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -47,16 +47,17 @@ class CityManagerPage extends ConsumerWidget {
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, i) {
               final c = cities[i];
-              final isCurrent = current?.id == c.id;
+              final isCurrent = currentId == c.id || currentId == 'locate_init' && c.isLocated;
               return _CityTile(
                 city: c,
                 isCurrent: isCurrent,
                 onTap: () {
-                  ref.read(weatherProvider.notifier).selectCity(c);
+                  // 切换到目标城市：更新激活城市并回主页，由 PageView 滑到对应页。
+                  ref.read(activeCityIdProvider.notifier).setCity(c.id);
                   Navigator.pop(context);
                 },
                 onDelete: () async {
-                  await ref.read(weatherProvider.notifier).removeCity(c.id);
+                  await ref.read(weatherProvider(c.id).notifier).removeCity(c.id);
                   ref.invalidate(savedCitiesProvider);
                 },
               );
