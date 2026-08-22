@@ -40,7 +40,11 @@ class GromoreBridgePlugin : FlutterPlugin, ActivityAware {
                     val appId = call.argument<String>("appId") ?: ""
                     val useMediation = call.argument<Boolean>("useMediation") ?: true
                     val debugMode = call.argument<Boolean>("debugMode") ?: false
-                    result.success(SdkManager.init(applicationContext!!, appId, useMediation, debugMode))
+                    // 等待初始化真正完成（含平台配置拉取）后再回传结果，
+                    // 确保后续开屏/Banner/激励请求时 SDK 已就绪，消除冷启动 840040 时序竞态。
+                    SdkManager.init(applicationContext!!, appId, useMediation, debugMode) { ok ->
+                        result.success(ok)
+                    }
                 }
                 "requestPermissionIfNecessary" -> {
                     result.success(true)
