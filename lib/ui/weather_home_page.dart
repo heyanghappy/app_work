@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ads/gromore_manager.dart';
 import '../providers/weather_provider.dart';
+import 'auto_refresh.dart';
 import 'city_manager_page.dart';
 import 'current_weather_card.dart';
 import 'daily_forecast_list.dart';
@@ -19,9 +20,10 @@ class WeatherHomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(weatherProvider);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
+    return AutoRefresh(
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: SafeArea(
         child: state.loading && state.now == null
             ? const Center(child: CircularProgressIndicator())
             : state.error != null && state.now == null
@@ -83,6 +85,7 @@ class WeatherHomePage extends ConsumerWidget {
             label: const Text('看广告领取奖励'),
           ),
         ),
+      ),
       ),
     );
   }
