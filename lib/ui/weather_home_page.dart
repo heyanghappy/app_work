@@ -9,6 +9,7 @@ import 'daily_forecast_list.dart';
 import 'hourly_chart.dart';
 import 'life_indices_card.dart';
 import 'theme_colors.dart';
+import 'weather_detail_page.dart';
 
 /// 主页：组合当前天气 + 逐小时 + 多日 + 城市切换入口。
 class WeatherHomePage extends ConsumerWidget {
@@ -43,11 +44,20 @@ class WeatherHomePage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 12),
                         if (state.now != null)
-                          CurrentWeatherCard(
-                              now: state.now!, cityName: state.city?.name ?? ''),
+                          GestureDetector(
+                            onTap: () => _openDetail(context, state),
+                            child: CurrentWeatherCard(
+                                now: state.now!, cityName: state.city?.name ?? ''),
+                          ),
                         const SizedBox(height: 12),
-                        HourlyChart(hourly: state.hourly),
-                        DailyForecastList(daily: state.daily),
+                        GestureDetector(
+                          onTap: () => _openDetail(context, state),
+                          child: HourlyChart(hourly: state.hourly),
+                        ),
+                        GestureDetector(
+                          onTap: () => _openDetail(context, state),
+                          child: DailyForecastList(daily: state.daily),
+                        ),
                         LifeIndicesCard(indices: state.indices),
                         const SizedBox(height: 16),
                         // GroMore Banner 广告（置于「未来几天」列表最下方，滚动到底部展示）
@@ -95,6 +105,21 @@ class WeatherHomePage extends ConsumerWidget {
   void _openCitySheet(BuildContext context, WidgetRef ref) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const CityManagerPage()),
+    );
+  }
+
+  /// 打开天气详情页（仅当已有实时数据时）。
+  void _openDetail(BuildContext context, WeatherState state) {
+    final now = state.now;
+    if (now == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => WeatherDetailPage(
+          now: now,
+          cityName: state.city?.name ?? '',
+          hourly: state.hourly,
+        ),
+      ),
     );
   }
 }
