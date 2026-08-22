@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../ads/gromore_manager.dart';
 import '../providers/weather_provider.dart';
-import 'city_search_sheet.dart';
+import 'city_manager_page.dart';
 import 'current_weather_card.dart';
 import 'daily_forecast_list.dart';
 import 'hourly_chart.dart';
+import 'life_indices_card.dart';
+import 'theme_colors.dart';
 
 /// 主页：组合当前天气 + 逐小时 + 多日 + 城市切换入口。
 class WeatherHomePage extends ConsumerWidget {
@@ -17,7 +19,7 @@ class WeatherHomePage extends ConsumerWidget {
     final state = ref.watch(weatherProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: state.loading && state.now == null
             ? const Center(child: CircularProgressIndicator())
@@ -30,12 +32,13 @@ class WeatherHomePage extends ConsumerWidget {
                       }
                     },
                     child: ListView(
-                      // 底部预留足够空间，避免 Banner/内容被「切换城市」悬浮按钮遮挡。
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                      // 底部预留少量空间，让 Banner 与列表尾部有呼吸感。
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                       children: [
                         _TopBar(
                           cityName: state.city?.name ?? '',
                           isLocated: state.city?.isLocated ?? false,
+                          updatedAt: state.updatedAt,
                           onPick: () => _openCitySheet(context, ref),
                         ),
                         const SizedBox(height: 12),
@@ -45,6 +48,7 @@ class WeatherHomePage extends ConsumerWidget {
                         const SizedBox(height: 12),
                         HourlyChart(hourly: state.hourly),
                         DailyForecastList(daily: state.daily),
+                        LifeIndicesCard(indices: state.indices),
                         const SizedBox(height: 16),
                         // GroMore Banner 广告（置于「未来几天」列表最下方，滚动到底部展示）
                         Center(child: GromoreManager.banner()),
@@ -59,11 +63,6 @@ class WeatherHomePage extends ConsumerWidget {
                       ],
                     ),
                   ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openCitySheet(context, ref),
-        icon: const Icon(Icons.add_location_alt),
-        label: const Text('切换城市'),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
@@ -94,11 +93,8 @@ class WeatherHomePage extends ConsumerWidget {
   }
 
   void _openCitySheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const CitySearchSheet(),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CityManagerPage()),
     );
   }
 }
@@ -106,30 +102,51 @@ class WeatherHomePage extends ConsumerWidget {
 class _TopBar extends StatelessWidget {
   final String cityName;
   final bool isLocated;
+  final DateTime? updatedAt;
   final VoidCallback onPick;
 
   const _TopBar({
     required this.cityName,
     required this.isLocated,
+    this.updatedAt,
     required this.onPick,
   });
 
+  String get _updatedLabel {
+    if (updatedAt == null) return '';
+    final h = updatedAt!.hour.toString().padLeft(2, '0');
+    final m = updatedAt!.minute.toString().padLeft(2, '0');
+    return '更新于 $h:$m';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(isLocated ? Icons.my_location : Icons.location_city,
-            color: Colors.grey.shade600),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(cityName,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+        Row(
+          children: [
+            Icon(isLocated ? Icons.my_location : Icons.location_city,
+                color: context.mutedColor),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(cityName,
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w600)),
+            ),
+            TextButton.icon(
+              onPressed: onPick,
+              icon: const Icon(Icons.swap_horiz),
+              label: const Text('切换'),
+            ),
+          ],
         ),
-        TextButton.icon(
-          onPressed: onPick,
-          icon: const Icon(Icons.swap_horiz),
-          label: const Text('切换'),
-        ),
+        if (_updatedLabel.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: Text(_updatedLabel,
+                style: TextStyle(fontSize: 11, color: context.mutedColor)),
+          ),
       ],
     );
   }

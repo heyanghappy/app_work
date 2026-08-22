@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/weather.dart';
+import 'theme_colors.dart';
 import 'weather_icons.dart';
 
 /// 未来几天预报纵向列表。
@@ -23,7 +24,7 @@ class DailyForecastList extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

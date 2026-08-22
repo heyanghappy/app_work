@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
 import '../config/env.dart';
 import '../models/city.dart';
+import '../models/indices.dart';
 import '../models/weather.dart';
 
 /// 和风天气远程数据源。
@@ -104,6 +105,18 @@ class WeatherRemoteDataSource {
     return _unwrap(resp, (d) {
       final list = (d['hourly'] as List).cast<Map<String, dynamic>>();
       return list.map(HourlyForecast.fromJson).toList();
+    });
+  }
+
+  /// 生活指数（穿衣/洗车/运动/紫外线等）。
+  Future<List<IndicesItem>> getIndices(String locationId) async {
+    final resp = await _dio.get<Map<String, dynamic>>(
+      _url(WeatherApi.weatherBase, 'indices/1d'),
+      queryParameters: {'location': locationId, 'type': '0'},
+    );
+    return _unwrap(resp, (d) {
+      final list = (d['daily'] as List).cast<Map<String, dynamic>>();
+      return list.map(IndicesItem.fromJson).toList();
     });
   }
 

@@ -5,6 +5,7 @@ import '../data/location_service.dart';
 import '../data/weather_local.dart';
 import '../data/weather_remote.dart';
 import '../models/city.dart';
+import '../models/indices.dart';
 import '../models/weather.dart';
 import '../repositories/weather_repository.dart';
 
@@ -33,6 +34,8 @@ class WeatherState {
   final WeatherNow? now;
   final List<HourlyForecast> hourly;
   final List<DailyForecast> daily;
+  final List<IndicesItem> indices;
+  final DateTime? updatedAt;
   final bool loading;
   final String? error;
 
@@ -41,6 +44,8 @@ class WeatherState {
     this.now,
     this.hourly = const [],
     this.daily = const [],
+    this.indices = const [],
+    this.updatedAt,
     this.loading = false,
     this.error,
   });
@@ -50,6 +55,8 @@ class WeatherState {
     WeatherNow? now,
     List<HourlyForecast>? hourly,
     List<DailyForecast>? daily,
+    List<IndicesItem>? indices,
+    DateTime? updatedAt,
     bool? loading,
     String? error,
   }) =>
@@ -58,6 +65,8 @@ class WeatherState {
         now: now ?? this.now,
         hourly: hourly ?? this.hourly,
         daily: daily ?? this.daily,
+        indices: indices ?? this.indices,
+        updatedAt: updatedAt ?? this.updatedAt,
         loading: loading ?? this.loading,
         error: error,
       );
@@ -93,10 +102,18 @@ class WeatherNotifier extends StateNotifier<WeatherState> {
         _repo.getHourlyForecast(city.id, cached: cached?.hourly),
         _repo.getDailyForecast(city.id, cached: cached?.daily),
       ]);
+      // 生活指数为可选数据，失败不阻塞主流程。
+      List<IndicesItem> indices = const [];
+      try {
+        indices = await _repo.getIndices(city.id);
+      } catch (_) {}
+
       state = state.copyWith(
         now: results[0] as WeatherNow,
         hourly: results[1] as List<HourlyForecast>,
         daily: results[2] as List<DailyForecast>,
+        indices: indices,
+        updatedAt: DateTime.now(),
         loading: false,
       );
     } catch (e) {
@@ -110,6 +127,11 @@ class WeatherNotifier extends StateNotifier<WeatherState> {
   Future<void> selectCity(City city) async {
     await _repo.addCity(city);
     await load(city);
+  }
+
+  /// 从已保存城市中删除；若删除的是当前城市则保留当前展示不变。
+  Future<void> removeCity(String cityId) async {
+    await _repo.removeCity(cityId);
   }
 
   String _msg(Object e) => e is WeatherApiException ? e.message : e.toString();

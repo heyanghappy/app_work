@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/city.dart';
 import '../data/weather_remote.dart';
 import '../providers/weather_provider.dart';
+import 'theme_colors.dart';
 
 /// 城市搜索与切换底部弹层。
 class CitySearchSheet extends ConsumerStatefulWidget {
@@ -44,9 +45,9 @@ class _CitySearchSheetState extends ConsumerState<CitySearchSheet> {
       minChildSize: 0.5,
       maxChildSize: 0.92,
       builder: (_, scroll) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: context.cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -67,7 +68,7 @@ class _CitySearchSheetState extends ConsumerState<CitySearchSheet> {
                 hintText: '搜索城市，例如 上海 / 杭州',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: Colors.grey.shade100,
+                fillColor: context.subtleColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,

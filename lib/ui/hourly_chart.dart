@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/weather.dart';
+import 'theme_colors.dart';
 import 'weather_icons.dart';
 
 /// 逐小时温度横向滚动曲线卡片。
@@ -21,7 +22,7 @@ class HourlyChart extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

@@ -3,6 +3,7 @@ import '../data/location_service.dart';
 import '../data/weather_local.dart';
 import '../data/weather_remote.dart';
 import '../models/city.dart';
+import '../models/indices.dart';
 import '../models/weather.dart';
 
 /// 天气仓库：编排远程数据源与本地缓存，对外提供统一接口。
@@ -82,6 +83,9 @@ class WeatherRepository {
   /// 一次性读取该城市的完整缓存视图（仅解码一次 JSON），供并发拉取时复用。
   CachedWeatherBundle? getCachedBundle(String cityId) =>
       local.getCachedWeatherBundle(cityId);
+
+  /// 生活指数。
+  Future<List<IndicesItem>> getIndices(String cityId) => remote.getIndices(cityId);
 
   Future<List<City>> searchCity(String keyword) => remote.searchCity(keyword);
 

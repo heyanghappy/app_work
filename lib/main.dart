@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ads/gromore_manager.dart';
+import 'providers/theme_provider.dart';
 import 'providers/weather_provider.dart';
 import 'ui/privacy_consent_page.dart';
 import 'ui/weather_home_page.dart';
@@ -21,21 +22,32 @@ void main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider).themeMode;
     return MaterialApp(
       title: '极简天气',
       debugShowCheckedModeBanner: false,
+      // 不指定自定义 fontFamily，交由 web/index.html 的 CSS 字体回退渲染中文，
+      // 避免 Flutter Web 找不到字体时的 Noto 警告与豆腐块。
       theme: ThemeData(
         useMaterial3: true,
-        // 不指定自定义 fontFamily，交由 web/index.html 的 CSS 字体回退渲染中文，
-        // 避免 Flutter Web 找不到字体时的 Noto 警告与豆腐块。
         scaffoldBackgroundColor: const Color(0xFFF5F7FA),
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF4A90D9)),
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: const Color(0xFF121417),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF4A90D9),
+          brightness: Brightness.dark,
+        ),
+      ),
+      themeMode: themeMode, // 由 themeModeProvider 控制（默认跟随系统）
       home: const AppEntry(),
     );
   }
