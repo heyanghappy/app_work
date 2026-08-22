@@ -52,7 +52,7 @@ class GromoreManager {
       onFinish();
     }
 
-    // 注册原生反向回调：广告关闭或加载失败 -> 进主页。
+    // 注册原生反向回调：广告关闭或加载失败 -> 准备进主页。
     NativeGromore.setSplashCallbacks(
       onClosed: () {
         debugPrint('[GroMore] 开屏广告 onClosed');
@@ -73,9 +73,13 @@ class GromoreManager {
       return;
     }
 
-    // 纯安全网：仅在广告既不关闭也不报错的极端情况下兜底，避免永久卡在开屏。
-    // 略大于常规 5 秒开屏倒计时，正常流程下由 onClosed 先触发。
-    await Future.delayed(const Duration(seconds: 6));
+    // 开屏最短展示窗口：无论广告是正常展示还是提前失败/关闭（尤其冷启动加速、
+    // 无填充导致的快速跳过），都至少停留 5 秒再进主页，
+    // 给 SDK 充足加载+渲染时间，避免开屏「一闪而过」。
+    const minShow = Duration(seconds: 5);
+    await Future.delayed(minShow);
+    // 最短窗口结束后若广告仍在展示，由原生 onSplashAdClose(3s 后倒计时结束) 触发
+    // onClosed 进主页；若广告已提前关闭/失败，complete 已置位，此处直接兜底收尾。
     complete();
   }
 

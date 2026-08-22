@@ -54,21 +54,11 @@
             android:name="GROMORE_APPID"
             android:value="${GROMORE_APPID}" />
 
-        <!-- 穿山甲 GroMore / Pangle 广告运行必需组件 -->
-        <!-- 注意：开屏/插屏/全屏 Activity、TT_PANGOLIN 权限、pangle FileProvider
-             均已由 mediation-sdk(aar) 自动合并，宿主无需重复声明，重复声明会触发
-             ClassNotFoundException 导致启动闪退。此处仅补齐 pangle FileProvider 缺失的
-             paths 配置（与 SDK 自带 authority 保持一致，用 replace 合并 meta-data）。 -->
-        <provider
-            android:name="com.bytedance.pangle.FileProvider"
-            android:authorities="${applicationId}.pangle.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true"
-            tools:replace="android:exported">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/gromore_file_paths" />
-        </provider>
+        <!-- 穿山甲 GroMore / Pangle 广告运行必需组件（开屏/插屏 Activity、
+             TT_PANGOLIN 权限、FileProvider 等均已由 mediation-sdk(aar) 自动合并，
+             宿主无需声明。曾手写 com.bytedance.pangle.FileProvider，但新版 SDK
+             该类已混淆为 com.byazt.jr.FileProvider，手写声明会导致启动
+             ClassNotFoundException，故删除。 -->
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

@@ -3,6 +3,7 @@ package com.example.app_weather.gromore
 import android.app.Activity
 import android.content.Context
 import android.graphics.Color
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -17,6 +18,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 class SplashAdManager(private val channel: MethodChannel) {
+    private val TAG = "GroMore"
     private var splashAd: CSJSplashAd? = null
     private var splashContainer: FrameLayout? = null
     private var currentActivity: Activity? = null
@@ -35,6 +37,7 @@ class SplashAdManager(private val channel: MethodChannel) {
         }
         currentActivity = context
 
+        Log.i(TAG, "loadSplashAd -> posId=$posId")
         val adNative = TTAdSdk.getAdManager().createAdNative(context)
         val adSlot = AdSlot.Builder()
             .setCodeId(posId)
@@ -47,15 +50,19 @@ class SplashAdManager(private val channel: MethodChannel) {
             .build()
 
         adNative.loadSplashAd(adSlot, object : TTAdNative.CSJSplashAdListener {
-            override fun onSplashLoadSuccess(ad: CSJSplashAd?) {}
+            override fun onSplashLoadSuccess(ad: CSJSplashAd?) {
+                Log.i(TAG, "onSplashLoadSuccess")
+            }
 
             override fun onSplashLoadFail(error: CSJAdError?) {
+                Log.e(TAG, "onSplashLoadFail code=${error?.getCode()} msg=${error?.getMsg()}")
                 result.error("SPLASH_LOAD_FAIL", error?.getMsg() ?: "splash load fail", error?.getCode())
                 // 反向通知 Dart：加载失败
                 channel.invokeMethod("splashError", error?.getMsg() ?: "splash load fail")
             }
 
             override fun onSplashRenderSuccess(ad: CSJSplashAd?) {
+                Log.i(TAG, "onSplashRenderSuccess")
                 splashAd = ad
                 showSplashAdView(context)
                 result.success(true)
@@ -65,6 +72,7 @@ class SplashAdManager(private val channel: MethodChannel) {
                 ad: CSJSplashAd?,
                 error: CSJAdError?
             ) {
+                Log.e(TAG, "onSplashRenderFail code=${error?.getCode()} msg=${error?.getMsg()}")
                 result.error("SPLASH_RENDER_FAIL", error?.getMsg() ?: "splash render fail", error?.getCode())
                 channel.invokeMethod("splashError", error?.getMsg() ?: "splash render fail")
             }
@@ -88,11 +96,16 @@ class SplashAdManager(private val channel: MethodChannel) {
             )
         )
         ad.setSplashAdListener(object : CSJSplashAd.SplashAdListener {
-            override fun onSplashAdShow(ad: CSJSplashAd?) {}
+            override fun onSplashAdShow(ad: CSJSplashAd?) {
+                Log.i(TAG, "onSplashAdShow")
+            }
 
-            override fun onSplashAdClick(ad: CSJSplashAd?) {}
+            override fun onSplashAdClick(ad: CSJSplashAd?) {
+                Log.i(TAG, "onSplashAdClick")
+            }
 
             override fun onSplashAdClose(ad: CSJSplashAd?, closeType: Int) {
+                Log.i(TAG, "onSplashAdClose closeType=$closeType")
                 // 关键：广告关闭后必定移除容器，避免黑容器盖住主页。
                 removeSplashContainer()
                 // 反向通知 Dart：广告已关闭，可进入主页。

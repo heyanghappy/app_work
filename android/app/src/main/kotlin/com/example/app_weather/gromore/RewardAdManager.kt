@@ -3,6 +3,7 @@ package com.example.app_weather.gromore
 import android.app.Activity
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import com.bytedance.sdk.openadsdk.AdSlot
 import com.bytedance.sdk.openadsdk.TTAdConstant
 import com.bytedance.sdk.openadsdk.TTAdNative
@@ -15,10 +16,12 @@ class RewardAdManager(
     private val channel: MethodChannel,
     private val appContext: Context
 ) {
+    private val TAG = "GroMore"
     private var rewardAd: TTRewardVideoAd? = null
     private var rewarded = false
 
     fun load(posId: String, result: MethodChannel.Result) {
+        Log.i(TAG, "loadRewardVideoAd -> posId=$posId")
         val adNative = TTAdSdk.getAdManager().createAdNative(appContext)
         val adSlot = AdSlot.Builder()
             .setCodeId(posId)
@@ -33,17 +36,23 @@ class RewardAdManager(
 
         adNative.loadRewardVideoAd(adSlot, object : TTAdNative.RewardVideoAdListener {
             override fun onRewardVideoAdLoad(ad: TTRewardVideoAd?) {
+                Log.i(TAG, "onRewardVideoAdLoad")
                 rewardAd = ad
                 result.success(true)
             }
 
             // 7.7.1.6 的 RewardVideoAdListener 对 onRewardVideoCached 提供了两个重载
             // （无参 + 有参 TTRewardVideoAd），匿名类需两个都实现，否则编译报未实现。
-            override fun onRewardVideoCached() {}
+            override fun onRewardVideoCached() {
+                Log.i(TAG, "onRewardVideoCached()")
+            }
 
-            override fun onRewardVideoCached(ad: TTRewardVideoAd?) {}
+            override fun onRewardVideoCached(ad: TTRewardVideoAd?) {
+                Log.i(TAG, "onRewardVideoCached(ad)")
+            }
 
             override fun onError(errorCode: Int, errorMsg: String?) {
+                Log.e(TAG, "onError code=$errorCode msg=$errorMsg")
                 result.error("REWARD_LOAD_FAIL", errorMsg ?: "reward load fail", errorCode)
                 channel.invokeMethod("rewardError", "$errorCode:$errorMsg")
             }
@@ -53,17 +62,22 @@ class RewardAdManager(
     fun show(posId: String, result: MethodChannel.Result, context: Context) {
         val ad = rewardAd
         if (ad == null) {
+            Log.e(TAG, "showRewardVideoAd -> ad not loaded")
             result.error("NO_REWARD_AD", "reward ad not loaded", null)
             channel.invokeMethod("rewardError", "reward ad not loaded")
             return
         }
+        Log.i(TAG, "showRewardVideoAd -> posId=$posId")
         rewarded = false
         ad.setRewardAdInteractionListener(object : TTRewardVideoAd.RewardAdInteractionListener {
-            override fun onAdShow() {}
+            override fun onAdShow() {
+                Log.i(TAG, "reward onAdShow")
+            }
 
             override fun onAdVideoBarClick() {}
 
             override fun onAdClose() {
+                Log.i(TAG, "reward onAdClose rewarded=$rewarded")
                 // 关闭后通知 Dart（携带是否发奖）
                 channel.invokeMethod("rewardClosed", rewarded)
                 result.success(rewarded)
@@ -71,7 +85,9 @@ class RewardAdManager(
 
             override fun onVideoComplete() {}
 
-            override fun onVideoError() {}
+            override fun onVideoError() {
+                Log.e(TAG, "reward onVideoError")
+            }
 
             override fun onRewardVerify(
                 rewardVerify: Boolean,

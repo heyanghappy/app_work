@@ -2,6 +2,7 @@ package com.example.app_weather.gromore
 
 import android.content.Context
 import android.graphics.Color
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -22,6 +23,7 @@ class BannerPlatformView(
     id: Int,
     creationParams: Any?
 ) : PlatformView {
+    private val TAG = "GroMore"
     private val container: FrameLayout = FrameLayout(context)
     private val methodChannel: MethodChannel = MethodChannel(messenger, "gromore_banner_$id")
     private var bannerAd: TTNativeExpressAd? = null
@@ -32,6 +34,7 @@ class BannerPlatformView(
         val width = (params?.get("width") as? Double)?.toFloat() ?: 320f
         val height = (params?.get("height") as? Double)?.toFloat() ?: 50f
 
+        Log.i(TAG, "loadBannerExpressAd -> posId=$posId size=${width}x$height")
         container.setBackgroundColor(Color.TRANSPARENT)
 
         val adNative = TTAdSdk.getAdManager().createAdNative(context)
@@ -43,6 +46,7 @@ class BannerPlatformView(
         // 7.7.1.6: Banner 为模板广告，使用 loadBannerExpressAd。
         adNative.loadBannerExpressAd(adSlot, object : TTAdNative.NativeExpressAdListener {
             override fun onNativeExpressAdLoad(ads: MutableList<TTNativeExpressAd>?) {
+                Log.i(TAG, "banner onNativeExpressAdLoad ads=${ads?.size}")
                 val ad = ads?.firstOrNull()
                 bannerAd = ad
                 ad?.render()
@@ -58,11 +62,13 @@ class BannerPlatformView(
                     )
                     methodChannel.invokeMethod("onLoaded", null)
                 } else {
+                    Log.e(TAG, "banner expressAdView is null")
                     methodChannel.invokeMethod("onError", "expressAdView is null")
                 }
             }
 
             override fun onError(errorCode: Int, errorMsg: String?) {
+                Log.e(TAG, "banner onError code=$errorCode msg=$errorMsg")
                 methodChannel.invokeMethod("onError", "$errorCode:$errorMsg")
             }
         })
