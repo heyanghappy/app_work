@@ -105,20 +105,35 @@ class SplashAdManager(private val channel: MethodChannel) {
 
     private fun showSplashAdView(activity: Activity) {
         val ad = splashAd ?: return
+        val container = getOrCreateSplashContainer(activity)
+        container.removeAllViews()
+
+        // 关键修复：改用官方推荐的 ad.showSplashView(container) 展示开屏，
+        // 由 SDK 内部将创意视图渲染进容器。
+        // 此前手动 ad.splashView + addView 在聚合 SDK 下拿到的是不完整视图，
+        // 表现为「黑屏但可点击/跳转」——创意(图片)未渲染出来。
         val splashView = ad.splashView
-        if (splashView == null) {
+        if (splashView != null) {
+            // 优先使用 showSplashView，让 SDK 自行渲染创意。
+            try {
+                ad.showSplashView(container)
+                Log.i(TAG, "showSplashView(container) 已调用")
+            } catch (t: Throwable) {
+                Log.e(TAG, "showSplashView 失败，回退手动 addView -> ${t.message}")
+                container.addView(
+                    splashView,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                )
+            }
+        } else {
+            Log.e(TAG, "splashView is null")
             channel.invokeMethod("splashError", "splashView is null")
             return
         }
-        val container = getOrCreateSplashContainer(activity)
-        container.removeAllViews()
-        container.addView(
-            splashView,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
+
         ad.setSplashAdListener(object : CSJSplashAd.SplashAdListener {
             override fun onSplashAdShow(ad: CSJSplashAd?) {
                 Log.i(TAG, "onSplashAdShow")

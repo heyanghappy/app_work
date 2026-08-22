@@ -86,10 +86,11 @@ class RewardAdManager(
             if (resultReplied) return
             resultReplied = true
             result.success(rewardedVal)
-            // 兼容历史 rewardError/success 双通道：onAdClose 已携带 rewarded，
-            // 此处仅在异常路径通过 rewardError 通知。
+            // 失败路径（onVideoError / showRewardVideoAd 抛异常）应通过
+            // rewardError 反向通知 Dart，而非 rewardClosed，
+            // 避免把「出错」误报成「正常关闭」掩盖错误。
             if (!success) {
-                channel.invokeMethod("rewardClosed", rewardedVal)
+                channel.invokeMethod("rewardError", "reward video error")
             }
         }
 
@@ -112,8 +113,8 @@ class RewardAdManager(
             override fun onVideoError() {
                 Log.e(TAG, "reward onVideoError")
                 // 视频错误：保证 result 被回复，避免 Dart 侧 showRewardVideoAd 挂起。
+                // replyOnce(success=false) 已负责通过 rewardError 通知 Dart。
                 replyOnce(success = false, rewardedVal = false)
-                channel.invokeMethod("rewardError", "reward video error")
             }
 
             override fun onRewardVerify(
@@ -143,8 +144,8 @@ class RewardAdManager(
             ad.showRewardVideoAd(activity)
         } catch (t: Throwable) {
             Log.e(TAG, "showRewardVideoAd throw -> ${t.message}")
+            // replyOnce(success=false) 已通过 rewardError 通知 Dart。
             replyOnce(success = false, rewardedVal = false)
-            channel.invokeMethod("rewardError", t.message ?: "show reward throw")
         }
     }
 }

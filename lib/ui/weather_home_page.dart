@@ -30,7 +30,8 @@ class WeatherHomePage extends ConsumerWidget {
                       }
                     },
                     child: ListView(
-                      padding: const EdgeInsets.all(16),
+                      // 底部预留足够空间，避免 Banner/内容被「切换城市」悬浮按钮遮挡。
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                       children: [
                         _TopBar(
                           cityName: state.city?.name ?? '',
@@ -44,6 +45,9 @@ class WeatherHomePage extends ConsumerWidget {
                         const SizedBox(height: 12),
                         HourlyChart(hourly: state.hourly),
                         DailyForecastList(daily: state.daily),
+                        const SizedBox(height: 16),
+                        // GroMore Banner 广告（置于「未来几天」列表最下方，滚动到底部展示）
+                        Center(child: GromoreManager.banner()),
                         if (state.error != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
@@ -52,9 +56,6 @@ class WeatherHomePage extends ConsumerWidget {
                                     color: Colors.orange, fontSize: 12),
                                 textAlign: TextAlign.center),
                           ),
-                        const SizedBox(height: 16),
-                        // GroMore Banner 广告（滚动到列表底部显示）
-                        Center(child: GromoreManager.banner()),
                       ],
                     ),
                   ),

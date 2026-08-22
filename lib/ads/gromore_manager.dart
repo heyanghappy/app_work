@@ -134,21 +134,24 @@ class GromoreManager {
   }
 
   /// 返回一个 Banner/信息流广告控件（仅 Android；其他平台返回占位空控件）。
-  static Widget banner({double height = 50}) {
+  ///
+  /// 穿山甲 Banner 模板广告常用规格为 640×100（宽横幅），
+  /// 此前 320×50 过小导致创意被裁剪展示不完整。
+  static Widget banner({double width = 640, double height = 100}) {
     if (!Platform.isAndroid) {
       return const SizedBox.shrink();
     }
     return SizedBox(
       width: double.infinity,
       height: height,
-      child: const AndroidView(
+      child: AndroidView(
         viewType: 'gromore_banner',
         creationParams: {
           'posId': AdConfig.bannerAdId,
-          'width': 320.0,
-          'height': 50.0,
+          'width': width,
+          'height': height,
         },
-        creationParamsCodec: StandardMessageCodec(),
+        creationParamsCodec: const StandardMessageCodec(),
       ),
     );
   }
